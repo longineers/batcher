@@ -2,13 +2,19 @@ package com.longineers.batcher.config;
 
 import java.time.LocalDateTime;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.database.JpaItemWriter;
 import org.springframework.batch.item.database.builder.JpaItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
@@ -94,13 +100,34 @@ public class BatchConfig {
     }
 
     @Bean
+    @StepScope
+    public ItemProcessor<Product, Product> categoryFilterProcessor(
+            @Value("#{jobParameters['categories']}") String categories) {
+        if (categories == null || categories.isEmpty()) {
+            return item -> item; // If no categories are provided, pass all items through.
+        }
+        Set<String> categorySet = Arrays.stream(categories.split(","))
+                .map(String::trim)
+                .collect(Collectors.toSet());
+
+        return product -> {
+            if (categorySet.contains(product.getCategory())) {
+                return product; // Keep the product if its category is in the set.
+            }
+            return null; // Discard the product by returning null.
+        };
+    }
+
+    @Bean
     public Step csvImportStep(  JobRepository jobRepository,
                                  FlatFileItemReader<Product> reader,
+                                 ItemProcessor<Product, Product> processor,
                                  JpaItemWriter<Product> writer,
                                  PlatformTransactionManager transactionManager) {
         return new StepBuilder("csvImportStep", jobRepository)
                 .<Product, Product>chunk(this.chunkSize, transactionManager)
                 .reader(reader)
+                .processor(processor)
                 .writer(writer)
                 .allowStartIfComplete(true)
                 .build();

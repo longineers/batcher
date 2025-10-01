@@ -89,15 +89,29 @@ graph TD
 
 ## Triggering the Job
 
-The batch job is not triggered automatically on startup. Instead, you can trigger it by sending a POST request to the `/launch` endpoint.
+The batch job can be triggered by sending a POST request to the `/run` endpoint.
+This endpoint optionally accepts a JSON body to filter the import by product categories.
 
-You can use `curl` to trigger the job:
+### Examples
+
+**1. Run the job without any filtering:**
 
 ```bash
-curl -X POST http://localhost:8080/launch
+curl -X POST http://localhost:8080/run
 ```
 
-This will start the `csvImportJob`.
+**2. Run the job with category filtering:**
+
+To import only products belonging to specific categories, you can provide a JSON array of category names in the request body.
+
+```bash
+curl -X POST http://localhost:8080/run \
+-H "Content-Type: application/json" \
+-d '{
+    "categories": ["Electronics", "Home Appliances"]
+}'
+```
+This will import only the products that belong to the "Electronics" or "Home Appliances" categories.
 
 ## How to Run Tests
 
