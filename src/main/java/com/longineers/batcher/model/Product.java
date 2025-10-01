@@ -52,4 +52,5 @@ public class Product {
     private Boolean freeShipping;
     private Double shippingCost;
     private Integer estimatedDays;
+    private String customiseLink;
 }

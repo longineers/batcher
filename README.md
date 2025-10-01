@@ -22,12 +22,18 @@ graph TD
         B[csvImportJob]
         C[csvImportStep]
         D[FlatFileItemReader]
+        H[CompositeItemProcessor]
+        I[categoryFilterProcessor]
+        J[customiseLinkProcessor]
         E[JpaItemWriter]
 
         B --> C;
         C --> D;
+        C --> H;
         C --> E;
         D -- reads --> A;
+        H --> I;
+        H --> J;
     end
 
     subgraph "Database"
@@ -38,6 +44,18 @@ graph TD
         F -- contains --> G;
     end
 ```
+
+## Item Processors
+
+The application uses a `CompositeItemProcessor` to chain multiple processors together. This allows for modular and reusable processing steps.
+
+### Category Filter Processor
+
+The `categoryFilterProcessor` filters products based on a list of categories provided as a job parameter. If no categories are provided, it allows all products to pass through.
+
+### Customise Link Processor
+
+The `customiseLinkProcessor` generates a custom link for each product by appending a suffix to the product's image URL. The suffix is configurable via the `customise.link.suffix` property in `application.properties`.
 
 ## Technologies Used
 
@@ -63,11 +81,20 @@ graph TD
         docker-compose up -d
         ```
 
-3.  **Environment Variables:**
-    *   The application uses environment variables to configure the database connection. You can either set them in your operating system or provide them when running the application.
-    *   `DB_NAME`: The name of the database (e.g., `batcher`).
-    *   `DB_USER`: The username for the database (e.g., `batcher`).
-    *   `DB_PASSWORD`: The password for the database (e.g., `password`).
+## Configuration
+
+The application can be configured using environment variables and properties in `application.properties`.
+
+### Environment Variables
+
+*   `DB_NAME`: The name of the database (e.g., `batcher`).
+*   `DB_USER`: The username for the database (e.g., `batcher`).
+*   `DB_PASSWORD`: The password for the database (e.g., `password`).
+
+### Application Properties
+
+*   `batch.chunk-size`: The number of items to process in each chunk (default: `1000`).
+*   `customise.link.suffix`: The suffix to append to the image URL to create the customise link (default: `?source=batcher`).
 
 ## How to Run
 

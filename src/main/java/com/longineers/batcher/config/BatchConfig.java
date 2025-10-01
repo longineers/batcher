@@ -3,7 +3,6 @@ package com.longineers.batcher.config;
 import java.time.LocalDateTime;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.batch.core.Job;
@@ -15,6 +14,8 @@ import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemProcessor;
+import org.springframework.batch.item.support.CompositeItemProcessor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.batch.item.database.JpaItemWriter;
 import org.springframework.batch.item.database.builder.JpaItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
@@ -119,15 +120,35 @@ public class BatchConfig {
     }
 
     @Bean
+    public ItemProcessor<Product, Product> customiseLinkProcessor(
+            @Value("${customise.link.suffix}") String linkSuffix) {
+        return product -> {
+            if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
+                product.setCustomiseLink(product.getImageUrl() + linkSuffix);
+            }
+            return product;
+        };
+    }
+
+    @Bean
+    public CompositeItemProcessor<Product, Product> compositeProcessor(
+            @Qualifier("categoryFilterProcessor") ItemProcessor<Product, Product> categoryFilterProcessor,
+            @Qualifier("customiseLinkProcessor") ItemProcessor<Product, Product> customiseLinkProcessor) {
+        CompositeItemProcessor<Product, Product> processor = new CompositeItemProcessor<>();
+        processor.setDelegates(Arrays.asList(categoryFilterProcessor, customiseLinkProcessor));
+        return processor;
+    }
+
+    @Bean
     public Step csvImportStep(  JobRepository jobRepository,
                                  FlatFileItemReader<Product> reader,
-                                 ItemProcessor<Product, Product> processor,
+                                 CompositeItemProcessor<Product, Product> compositeProcessor,
                                  JpaItemWriter<Product> writer,
                                  PlatformTransactionManager transactionManager) {
         return new StepBuilder("csvImportStep", jobRepository)
                 .<Product, Product>chunk(this.chunkSize, transactionManager)
                 .reader(reader)
-                .processor(processor)
+                .processor(compositeProcessor)
                 .writer(writer)
                 .allowStartIfComplete(true)
                 .build();
