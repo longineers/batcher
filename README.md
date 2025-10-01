@@ -87,6 +87,18 @@ graph TD
         DB_NAME=batcher DB_USER=batcher DB_PASSWORD=password java -jar build/libs/batcher-0.0.1-SNAPSHOT.jar
         ```
 
+## Triggering the Job
+
+The batch job is not triggered automatically on startup. Instead, you can trigger it by sending a POST request to the `/launch` endpoint.
+
+You can use `curl` to trigger the job:
+
+```bash
+curl -X POST http://localhost:8080/launch
+```
+
+This will start the `csvImportJob`.
+
 ## How to Run Tests
 
 To run the tests, use the following command:
