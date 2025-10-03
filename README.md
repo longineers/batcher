@@ -8,6 +8,49 @@ This project is a Spring Boot application that demonstrates how to efficiently i
 
 Imagine you have a very large CSV file containing millions of product records. Reading the entire file into memory and inserting the data row-by-row into a database would be inefficient and could lead to memory issues and slow performance. This project solves this problem by using Spring Batch to process the data in manageable chunks, providing a robust and scalable solution for batch processing.
 
+## Project Structure
+
+```
+.
+├── build.gradle
+├── docker-compose.yml
+├── gradlew
+├── settings.gradle
+└── src
+    ├── main
+    │   ├── java
+    │   │   └── com
+    │   │       └── longineers
+    │   │           └── batcher
+    │   │               ├── BatcherApplication.java
+    │   │               ├── config
+    │   │               │   ├── BatchConfig.java
+    │   │               │   └── SecurityConfig.java
+    │   │               ├── controller
+    │   │               │   ├── AuthenticationController.java
+    │   │               │   └── BatchJobController.java
+    │   │               ├── model
+    │   │               │   ├── AuthenticationRequest.java
+    │   │               │   ├── AuthenticationResponse.java
+    │   │               │   └── Product.java
+    │   │               ├── repository
+    │   │               │   └── ProductRepository.java
+    │   │               └── security
+    │   │                   ├── JwtRequestFilter.java
+    │   │                   ├── JwtUtil.java
+    │   │                   └── LoginUserDetailService.java
+    │   └── resources
+    │       ├── application.properties
+    │       └── db
+    │           ├── data
+    │           │   ├── massive_products.csv
+    │           │   └── massive_products.json
+    │           └── migration
+    │               ├── V1__create_spring_batch_tables.sql
+    │               └── V2__create_product_table.sql
+    └── test
+```
+
 ## Solution Diagram
 
 The following diagram illustrates the architecture of the solution:
@@ -26,6 +69,7 @@ graph TD
         I[categoryFilterProcessor]
         J[customiseLinkProcessor]
         E[JpaItemWriter]
+        K[anotherStep]
 
         B --> C;
         C --> D;
@@ -34,6 +78,7 @@ graph TD
         D -- reads --> A;
         H --> I;
         H --> J;
+        C --> K;
     end
 
     subgraph "Database"
@@ -81,27 +126,52 @@ The `customiseLinkProcessor` generates a custom link for each product by appendi
         docker-compose up -d
         ```
 
-## Configuration
+3.  **Environment Configuration:**
+    *   This project uses environment variables for configuration. A template file, `.env.example`, is provided in the root of the repository.
+    *   Copy the template to a new file named `.env`:
+        ```bash
+        cp .env.example .env
+        ```
+    *   Edit the `.env` file to set your database password and a secure JWT secret.
 
-The application can be configured using environment variables and properties in `application.properties`.
+## Security
 
-### Environment Variables
+The JWT expiry time is configured in the `application.properties` file using the `jwt.expiry-time` property. The default expiry time is 10 minutes.
 
-*   `DB_NAME`: The name of the database (e.g., `batcher`).
-*   `DB_USER`: The username for the database (e.g., `batcher`).
-*   `DB_PASSWORD`: The password for the database (e.g., `password`).
+The `/run` endpoint is secured using JWT (JSON Web Tokens). To trigger the batch job, you must first authenticate to get a token.
 
-### Application Properties
+### 1. Authenticate
 
-*   `batch.chunk-size`: The number of items to process in each chunk (default: `1000`).
-*   `customise.link.suffix`: The suffix to append to the image URL to create the customise link (default: `?source=batcher`).
+Make sure your `.env` file is populated with your `USERNAME` and `PASSWORD`.
+Then, run the following command to authenticate:
+
+```bash
+curl -X POST http://localhost:8080/authenticate \
+-H "Content-Type: application/json" \
+-d '{
+    "username": "$USERNAME",
+    "password": "$PASSWORD"
+}'
+```
+
+The response will contain a JWT.
+
+### 2. Trigger the Job with JWT
+
+Include the JWT in the `Authorization` header of your request to the `/run` endpoint:
+
+```bash
+curl -X POST http://localhost:8080/run \
+-H "Authorization: Bearer <your_jwt_here>"
+```
 
 ## How to Run
 
 1.  **Using Gradle:**
-    *   You can run the application using the Gradle wrapper. Make sure to provide the required environment variables.
+    *   The Gradle Dotenv plugin will automatically load the environment variables from your `.env` file.
+    *   You can run the application using the Gradle wrapper:
         ```bash
-        DB_NAME=batcher DB_USER=batcher DB_PASSWORD=password ./gradlew bootRun
+        ./gradlew bootRun
         ```
 
 2.  **From the JAR file:**
@@ -109,14 +179,14 @@ The application can be configured using environment variables and properties in 
         ```bash
         ./gradlew build
         ```
-    *   Then, run the generated JAR file:
+    *   Then, run the generated JAR file. You will need to manually load the environment variables first:
         ```bash
-        DB_NAME=batcher DB_USER=batcher DB_PASSWORD=password java -jar build/libs/batcher-0.0.1-SNAPSHOT.jar
+        source .env && java -jar build/libs/batcher-0.0.1-SNAPSHOT.jar
         ```
 
 ## Triggering the Job
 
-The batch job can be triggered by sending a POST request to the `/run` endpoint.
+The batch job can be triggered by sending a POST request to the `/run` endpoint. Remember to include your JWT as described in the **Security** section.
 This endpoint optionally accepts a JSON body to filter the import by product categories.
 
 ### Examples
@@ -124,7 +194,8 @@ This endpoint optionally accepts a JSON body to filter the import by product cat
 **1. Run the job without any filtering:**
 
 ```bash
-curl -X POST http://localhost:8080/run
+curl -X POST http://localhost:8080/run \
+-H "Authorization: Bearer <your_jwt_here>"
 ```
 
 **2. Run the job with category filtering:**
@@ -134,6 +205,7 @@ To import only products belonging to specific categories, you can provide a JSON
 ```bash
 curl -X POST http://localhost:8080/run \
 -H "Content-Type: application/json" \
+-H "Authorization: Bearer <your_jwt_here>" \
 -d '{
     "categories": ["Electronics", "Home Appliances"]
 }'
@@ -146,4 +218,3 @@ To run the tests, use the following command:
 
 ```bash
 ./gradlew test
-```
