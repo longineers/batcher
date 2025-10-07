@@ -24,6 +24,11 @@ public class JwtUtil {
     @Value("${jwt.expiry-time}")
     private long expiryTime;
 
+    private int getMinKeyLength() {
+        // Minimum key length for HS256 is 256 bits (32 bytes).
+        return 32;
+    }
+
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
@@ -69,8 +74,8 @@ public class JwtUtil {
                 .compact();
     }
 
-    public Boolean validateToken(String token, UserDetails userDetails) {
+    public boolean isAuthenticated(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
     }
 }

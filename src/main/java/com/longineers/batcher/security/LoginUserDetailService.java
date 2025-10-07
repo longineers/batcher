@@ -33,9 +33,11 @@ public class LoginUserDetailService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         if ("user".equals(username)) {
-            return new User("user", passwordEncoder.encode("password"), new ArrayList<>());
-        } else {
-            throw new UsernameNotFoundException("User not found with username: " + username);
+            return new User("user", 
+                passwordEncoder.encode("password"), new ArrayList<>()
+            );
         }
+
+        throw new UsernameNotFoundException("User not found with username: " + username);
     }
 }
